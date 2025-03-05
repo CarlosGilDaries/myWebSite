@@ -4,20 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google-adsense-account" content="ca-pub-7144274604131648">
-    <title>Streaming con Anuncios (DACAST + Google IMA)</title>
+    <title>Streaming con Anuncios (DACAST + Google IMA SDK)</title>
     <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script> 
+    <!-- El script de Dacast para usar su reproductor -->
     <script src="https://cdn.dacast.com/js/player.js"></script>
+
     <style>
         #video-container {
             position: relative;
             width: 100%;
             max-width: 800px;
             margin: auto;
-        }
-        #video-element {
-            width: 100%;
-            height: auto;
         }
         #ad-container {
             position: absolute;
@@ -35,32 +32,34 @@
 <body>
 
     <div id="video-container">
-        <video id="video-element" controls playsinline></video>
+        <!-- Video player container para Dacast -->
+        <div id="player"></div>
         <div id="ad-container"></div>
     </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            const videoElement = document.getElementById("video-element");
             const adContainer = document.getElementById("ad-container");
 
-            // 🔹 URL del streaming en vivo de DACAST (reemplázala con tu canal)
-            const streamUrl = "https://test-streams.mux.dev/test_001/stream.m3u8";  
+            // 🔹 URL del streaming en vivo de DACAST (reemplázalo con tu canal)
+            const streamUrl = "https://test-streams.mux.dev/test_001/stream.m3u8";  // Para prueba
 
-            // 🔹 Tag VAST de Google Ad Manager (puedes cambiarlo por tu propio tag)
+            // 🔹 Tag VAST de Google Ad Manager (reemplázalo con tu propio tag)
             const vastTag = "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/ad_rule_samples&ciu_szs=300x250&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ar%3Dpremidpost&correlator=";
 
-            // Inicializar HLS.js para reproducir HLS en navegadores compatibles
-            if (Hls.isSupported()) {
-                const hls = new Hls();
-                hls.loadSource(streamUrl);
-                hls.attachMedia(videoElement);
-            } else {
-                videoElement.src = streamUrl;
-            }
+            // 🔹 Inicialización de DACAST player
+            const dacastPlayer = new Dacast.Player({
+                id: "player",  // ID del contenedor del reproductor
+                playlistId: "YOUR_PLAYLIST_ID",  // Reemplaza con tu ID de playlist
+                width: "100%",
+                height: "auto",
+                autoplay: true,
+                controls: true,
+                source: streamUrl  // La URL del flujo HLS
+            });
 
-            // 🔹 Configurar Google IMA SDK
-            let adsLoader = new google.ima.AdsLoader(new google.ima.AdDisplayContainer(adContainer, videoElement));
+            // 🔹 Configuración de Google IMA SDK
+            let adsLoader = new google.ima.AdsLoader(new google.ima.AdDisplayContainer(adContainer, dacastPlayer));
             let adsManager;
 
             adsLoader.addEventListener(
@@ -68,9 +67,9 @@
                 function (event) {
                     let adsRequest = new google.ima.AdsRequest();
                     adsRequest.adTagUrl = vastTag;
-                    adsRequest.linearAdSlotWidth = videoElement.clientWidth;
-                    adsRequest.linearAdSlotHeight = videoElement.clientHeight;
-                    adsManager = event.getAdsManager(videoElement);
+                    adsRequest.linearAdSlotWidth = dacastPlayer.clientWidth;
+                    adsRequest.linearAdSlotHeight = dacastPlayer.clientHeight;
+                    adsManager = event.getAdsManager(dacastPlayer);
                 },
                 false
             );
@@ -79,7 +78,7 @@
             function playAd() {
                 if (adsManager) {
                     adContainer.style.display = "flex";
-                    videoElement.pause();
+                    dacastPlayer.pause();
                     adsManager.start();
                 }
             }
@@ -87,13 +86,13 @@
             // 🔹 Configurar para insertar anuncios cada 5 minutos
             setInterval(() => {
                 playAd();
-            }, 5 */* 60 **/ 1000);  // 5 minutos
+            }, 5 * 60 * 1000);  // 5 minutos
 
             // 🔹 Ocultar el contenedor de anuncios al finalizar
             if (adsManager) {
                 adsManager.addEventListener(google.ima.AdEvent.Type.COMPLETE, () => {
                     adContainer.style.display = "none";
-                    videoElement.play();
+                    dacastPlayer.play();
                 });
             }
         });
