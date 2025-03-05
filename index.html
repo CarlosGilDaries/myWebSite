@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Streaming con Anuncios (DACAST + Google IMA)</title>
+    <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script> 
+    <script src="https://cdn.dacast.com/js/player.js"></script>
+    <style>
+        #video-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: auto;
+        }
+        #video-element {
+            width: 100%;
+            height: auto;
+        }
+        #ad-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="video-container">
+        <video id="video-element" controls playsinline></video>
+        <div id="ad-container"></div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const videoElement = document.getElementById("video-element");
+            const adContainer = document.getElementById("ad-container");
+
+            // 🔹 URL del streaming en vivo de DACAST (reemplázala con tu canal)
+            const streamUrl = "https://test-streams.mux.dev/test_001/stream.m3u8";  
+
+            // 🔹 Tag VAST de Google Ad Manager (puedes cambiarlo por tu propio tag)
+            const vastTag = "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/ad_rule_samples&ciu_szs=300x250&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ar%3Dpremidpost&correlator=";
+
+            // Inicializar HLS.js para reproducir HLS en navegadores compatibles
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(streamUrl);
+                hls.attachMedia(videoElement);
+            } else {
+                videoElement.src = streamUrl;
+            }
+
+            // 🔹 Configurar Google IMA SDK
+            let adsLoader = new google.ima.AdsLoader(new google.ima.AdDisplayContainer(adContainer, videoElement));
+            let adsManager;
+
+            adsLoader.addEventListener(
+                google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
+                function (event) {
+                    let adsRequest = new google.ima.AdsRequest();
+                    adsRequest.adTagUrl = vastTag;
+                    adsRequest.linearAdSlotWidth = videoElement.clientWidth;
+                    adsRequest.linearAdSlotHeight = videoElement.clientHeight;
+                    adsManager = event.getAdsManager(videoElement);
+                },
+                false
+            );
+
+            // 🔹 Función para reproducir anuncios cada X minutos
+            function playAd() {
+                if (adsManager) {
+                    adContainer.style.display = "flex";
+                    videoElement.pause();
+                    adsManager.start();
+                }
+            }
+
+            // 🔹 Configurar para insertar anuncios cada 5 minutos
+            setInterval(() => {
+                playAd();
+            }, 5 */* 60 **/ 1000);  // 5 minutos
+
+            // 🔹 Ocultar el contenedor de anuncios al finalizar
+            if (adsManager) {
+                adsManager.addEventListener(google.ima.AdEvent.Type.COMPLETE, () => {
+                    adContainer.style.display = "none";
+                    videoElement.play();
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>
